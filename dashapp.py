@@ -1,16 +1,23 @@
 import dash
-from dash import Dash, html, dcc, Output, Input, callback_context
+from dash import Dash, html, dcc, Output, Input, callback_context, State
 import dash_bootstrap_components as dbc
 from plot_functions.cum_percentage import plot_cumulative_percentage
 from plot_functions.pie_chart import plot_organ_distribution_by_species
 from plot_functions.display_images import _get_species_images_by_organ, plot_images
+from plot_functions.projection import plot_umap
 import pandas as pd
+
+import numpy as np
+import ast
 
 from io import BytesIO
 import base64
 
 TRAIN_PATH_CSV = "datasource/PlantCLEF2024_single_plant_training_metadata.csv"
+EMBEDDINGS_PATH = "datasource/embeddings_zip.csv"
+
 df = pd.read_csv(f"{TRAIN_PATH_CSV}", sep=';')
+embeddings_df = pd.read_csv(f"{EMBEDDINGS_PATH}")
 
 app = Dash(
     __name__,
@@ -77,18 +84,17 @@ p2 = dbc.Container(fluid=True, children=[
         dbc.Col([
             
             html.Div([
-                # Dropdown
-                dcc.Dropdown(
-                    id="species-dropdown",
-                    options=[{"label": s, "value": s} for s in sorted(df["species"].unique())],
-                    value=None,  # Nenhum valor padrão => "não selecionado"
-                    placeholder="Select specie",
-                    clearable=True,
-                    style={"marginBottom": "10px",
-                           "margin": "0 auto",
-                           "width": "80%"},
-                    
-            ),
+                dcc.Store(id='species-store', data=[{"label": s, "value": s} for s in sorted(df["species"].unique())]),
+                dbc.Input(
+                    id="species-search-input",
+                    placeholder="Input Species name...",
+                    type="text",
+                    debounce=False,
+                    autoComplete="off",
+                    style={"width": "80%", "margin": "0 auto", "marginBottom": "10px"}
+                ),
+                html.Div(id="species-suggestions", style={"width": "80%", "margin": "0 auto"}),
+                
                 dcc.Graph(
                 id='organ-pie-chart',
                 figure=plot_organ_distribution_by_species(df),
@@ -113,9 +119,25 @@ p2 = dbc.Container(fluid=True, children=[
 ])
 
 @app.callback(
+    Output("species-suggestions", "children"),
+    Input("species-search-input", "value"),
+    State("species-store", "data")
+)
+
+def update_suggestions(query, species_data):
+    if not query:
+        return ""
+    
+    # Filtrando as sugestões no cliente (bem mais rápido!)
+    matches = [s for s in species_data if query.lower() in s['label'].lower()]
+    
+    # Limite de 5 sugestões
+    return html.Ul([html.Li(s['label'], style={"cursor": "pointer"}) for s in matches[:5]])
+
+@app.callback(
     Output("organ-pie-chart", "figure"),
     Output("images-organ-container", "children"),
-    Input("species-dropdown", "value")
+    Input("species-search-input", "value")
 )
 
 def update_organ_section(selected_species):
@@ -144,11 +166,35 @@ def update_organ_section(selected_species):
 
     return fig_pie, img_component
 
+embeddings_df['embeddings'] = embeddings_df['embeddings'].apply(lambda s: np.array(ast.literal_eval(s)).reshape(-1))
+organs = embeddings_df['organ']
+embeddings_array = np.stack(embeddings_df['embeddings'].values)
+labels = np.array(embeddings_df['species'])
+
+umap_fig = plot_umap(embeddings_array,
+          organs,
+          labels)
+
+p3 = dbc.Container(fluid=True, children=[
+    
+    dbc.Row([
+        dbc.Col([
+            dcc.Graph(
+                id="umap-static-fig",
+                figure=umap_fig,
+                style={'height': '500px'},
+                config={'displayModeBar': False}
+            )
+        ], width={"size": 10, "offset": 1})
+    ], className="g-0", style={"marginTop": "40px"})
+])
+
 # Layout principal
 app.layout = html.Div([
-    html.H1("PlantCLEF - ", style={"textAlign": "center", "marginBottom": "30px"}),
+    html.H1("PlantCLEF2025. CVPR-FGCV ", style={"textAlign": "center", "marginBottom": "30px"}),
     p1,
-    p2
+    p2,
+    p3
 ])
 
 if __name__ == "__main__":
