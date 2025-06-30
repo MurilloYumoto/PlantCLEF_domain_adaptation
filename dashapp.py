@@ -13,10 +13,11 @@ import ast
 from io import BytesIO
 import base64
 
-TRAIN_PATH_CSV = "datasource/PlantCLEF2024_single_plant_training_metadata.csv"
+TRAIN_PATH_CSV = "datasource/train_metadata (1).csv"
 EMBEDDINGS_PATH = "datasource/embeddings_zip.csv"
 
-df = pd.read_csv(f"{TRAIN_PATH_CSV}", sep=';')
+df = pd.read_csv(f"{TRAIN_PATH_CSV}", index_col=0)
+
 embeddings_df = pd.read_csv(f"{EMBEDDINGS_PATH}")
 
 app = Dash(
