@@ -36,7 +36,3 @@ Uma subamostra aleatória com aproximadamente 140 mil exemplares (cerca de 10% d
 embeddings_zip.csv:
 
 Contém embeddings gerados para uma pequena parcela de espécies vegetais específicas, escolhidas por possuírem exemplares com todos os órgãos representados. Esse dataset é usado exclusivamente para a visualização UMAP presente no relatório.
-
-#### Notebooks de Análise
-
-(Seção reservada para explicações sobre os notebooks adicionais que serão incluídos posteriormente.)
